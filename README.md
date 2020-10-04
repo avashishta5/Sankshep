@@ -1,15 +1,19 @@
 # Sankshep
-Summarization-as-a-Service
+A Hindi Text Summarization Library
+[![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 ---
 ### Installation
 ```
 $ git clone https://github.com/avashishta5/Sankshep.git
 $ cd Sankshep
+$ virtualenv venv
+$ source venv/bin/activate
 $ pip3 install -r requirements.txt
 ```
 ---
-### Run
+### Run Sample Frontend
 ---
 ```
-uvicorn --port 5000 --host 127.0.0.1 main:app --reload
+$ streamlit run frontend.py
 ```
