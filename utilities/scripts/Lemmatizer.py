@@ -1,13 +1,16 @@
 from os.path import dirname, abspath
 from tinydb import TinyDB, where
 from typing import List
-
+from distance import levenshtein
+from jellyfish import jaro_winkler_similarity
+from functools import lru_cache
 
 parent_directory = dirname(dirname(dirname(abspath(__file__))))
 lemmas_path = parent_directory + "/resources/lemmas.json"
 
 db = TinyDB(lemmas_path)
 
+@lru_cache(maxsize=300)
 def get_character_ngrams(token: str, n: int):
     """
     Returns character n-grams for given words.
@@ -73,6 +76,36 @@ def similarity(set1: List[str], set2: List[str]):
 
     return score
 
+@lru_cache(maxsize=300)
+def get_distance(str1: str, str2: str) -> int:
+    """
+    Uses Levenshtein Distance
+    str1 - token to be lemmatized
+    str2 - lemma from dictionary
+    """
+    if (len(str2) > len(str1)):
+        return -1
+
+    return levenshtein(str1, str2)
+
+@lru_cache(maxsize=300)
+def generate_stem_words(word):
+        suffixes = {
+        1: [u"ो",u"े",u"ू",u"ु",u"ी",u"ि",u"ा"],
+        2: [u"कर",u"ाओ",u"िए",u"ाई",u"ाए",u"ने",u"नी",u"ना",u"ते",u"ीं",u"ती",u"ता",u"ाँ",u"ां",u"ों",u"ें"],
+        3: [u"ाकर",u"ाइए",u"ाईं",u"ाया",u"ेगी",u"ेगा",u"ोगी",u"ोगे",u"ाने",u"ाना",u"ाते",u"ाती",u"ाता",u"तीं",u"ाओं",u"ाएं",u"ुओं",u"ुएं",u"ुआं"],
+        4: [u"ाएगी",u"ाएगा",u"ाओगी",u"ाओगे",u"एंगी",u"ेंगी",u"एंगे",u"ेंगे",u"ूंगी",u"ूंगा",u"ातीं",u"नाओं",u"नाएं",u"ताओं",u"ताएं",u"ियाँ",u"ियों",u"ियां"],
+        5: [u"ाएंगी",u"ाएंगे",u"ाऊंगी",u"ाऊंगा",u"ाइयाँ",u"ाइयों",u"ाइयां"],
+        }
+        for L in 5, 4, 3, 2, 1:
+            if len(word) > L + 1:
+                for suf in suffixes[L]:
+                    #print type(suf),type(word),word,suf
+                    if word.endswith(suf):
+                        #print 'h'
+                        return word[:-L]
+        return word
+
 
 def lemmatize(tokens: List[str]):
     """
@@ -90,24 +123,39 @@ def lemmatize(tokens: List[str]):
 
     lemma_list = []
     for token in tokens:
-        bigrams = get_character_ngrams(token, 2)
+        bigrams = get_character_ngrams(generate_stem_words(token), 2)
         options = db.search(where('letter') == token[0])
         options = options[0] if options else options
+        similarity_score = len(token)
 
         if options:
             if token in options["words"]:
                 lemma_list.append(token)
             else:
-                similarity_score = 0.0
+                candidates = []
                 for lemma in options["words"]:
-                    temp = similarity(bigrams, options["words"][lemma])
-                    similarity_score = temp if (temp > similarity_score) else similarity_score
-    
-                if round(similarity_score):
-                    lemma_list.append(lemma)
+                    temp = get_distance(token, lemma)
+                    if (temp != -1) and (temp <= similarity_score):
+                        similarity_score = temp
+                        candidates.append(lemma)
+                    else:
+                        pass
+                similarity_score = 0.0
+                jw_similarity_score = 0.0
+                add = ""
+                for i in candidates:
+                    cand_big = options["words"][i]
+                    temp = similarity(bigrams, cand_big)
+                    temp_jw = jaro_winkler_similarity(token, i)
+                    if (temp > similarity_score) and (temp_jw > jw_similarity_score):
+                        similarity_score = temp
+                        jw_similarity_score = temp_jw
+                        add = i
+                if round(similarity_score) == 1:
+                    lemma_list.append(add)  
                 else:
-                    lemma_list.append(token)
+                    lemma_list.append(token)      
         else:
             lemma_list.append(token)
 
-        return lemma_list
+    return list(zip(tokens, lemma_list))
