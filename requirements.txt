@@ -65,7 +65,7 @@ pyarrow==1.0.1
 pycld3==0.20
 pycodestyle==2.5.0
 pycparser==2.20
-pydantic==1.4
+pydantic==1.6.2
 pydeck==0.5.0b1
 Pygments==2.7.1
 pyparsing==2.4.7
